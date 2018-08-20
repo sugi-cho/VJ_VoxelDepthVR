@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Intel.RealSense;
 using UnityEngine.Rendering;
@@ -16,20 +17,31 @@ public class RealMesh : RendererBehaviour
 {
     public Stream stream = Stream.Color;
     Mesh mesh;
-    Texture2D uvmap;
 
     PointCloud pc;
 
-    Vector3[] vertices;
     private GCHandle handle;
     private IntPtr verticesPtr;
-    int frameSize;
-    private IntPtr frameData;
+    private IntPtr preVerticesPtr;
+
+    public bool pause;
 
     Intrinsics intrinsics;
     readonly AutoResetEvent e = new AutoResetEvent(false);
 
+    public ComputeShader compute;
+    Vector3[] vertices;
+    Vector3[] preVertices;
+    ComputeBuffer particleBuffer;
     ComputeBuffer vertexBuffer;
+    ComputeBuffer prevBuffer;
+    ComputeBuffer indicesBuffer;
+
+    SpatialFilter spatial;
+    TemporalFilter temporal;
+    HoleFillingFilter holeFilling;
+
+    int numParticles;
 
     void Start()
     {
@@ -40,6 +52,9 @@ public class RealMesh : RendererBehaviour
     private void OnStartStreaming(PipelineProfile activeProfile)
     {
         pc = new PointCloud();
+        spatial = new SpatialFilter();
+        temporal = new TemporalFilter();
+        holeFilling = new HoleFillingFilter();
 
         using (var profile = activeProfile.GetStream(stream))
         {
@@ -54,46 +69,24 @@ public class RealMesh : RendererBehaviour
             intrinsics = profile.GetIntrinsics();
 
             Assert.IsTrue(SystemInfo.SupportsTextureFormat(TextureFormat.RGFloat));
-            uvmap = new Texture2D(profile.Width, profile.Height, TextureFormat.RGFloat, false, true)
-            {
-                wrapMode = TextureWrapMode.Clamp,
-                filterMode = FilterMode.Point,
-            };
-            GetComponent<MeshRenderer>().sharedMaterial.SetTexture("_UVMap", uvmap);
 
-            if (mesh != null)
-                Destroy(mesh);
 
-            mesh = new Mesh()
-            {
-                indexFormat = IndexFormat.UInt32,
-            };
+            numParticles = (profile.Width - 1) * (profile.Height - 1) * 2;
 
             vertices = new Vector3[profile.Width * profile.Height];
+            preVertices = new Vector3[profile.Width * profile.Height];
             handle = GCHandle.Alloc(vertices, GCHandleType.Pinned);
             verticesPtr = handle.AddrOfPinnedObject();
-
-            vertexBuffer = new ComputeBuffer(vertices.Length, sizeof(float) * 3);
-            vertexBuffer.SetData(vertices);
-            renderer.SetBuffer("_VertBuffer", vertexBuffer);
+            handle = GCHandle.Alloc(preVertices, GCHandleType.Pinned);
+            preVerticesPtr = handle.AddrOfPinnedObject();
 
             var indices = new int[(profile.Width - 1) * (profile.Height - 1) * 6];
-
-            mesh.MarkDynamic();
-            mesh.vertices = vertices;
-
-            var uvs = new Vector2[vertices.Length];
-            Array.Clear(uvs, 0, uvs.Length);
-            var invSize = new Vector2(1f / profile.Width, 1f / profile.Height);
 
             var iIdx = 0;
             for (int j = 0; j < profile.Height; j++)
             {
                 for (int i = 0; i < profile.Width; i++)
                 {
-                    uvs[i + j * profile.Width].x = i * invSize.x;
-                    uvs[i + j * profile.Width].y = j * invSize.y;
-
                     if (i < profile.Width - 1 && j < profile.Height - 1)
                     {
                         var idx = i + j * profile.Width;
@@ -109,9 +102,28 @@ public class RealMesh : RendererBehaviour
                 }
             }
 
-            mesh.uv = uvs;
+            particleBuffer = new ComputeBuffer(numParticles, Marshal.SizeOf(typeof(VoxelParticle)));
+            vertexBuffer = new ComputeBuffer(vertices.Length, sizeof(float) * 3);
+            prevBuffer = new ComputeBuffer(vertices.Length, sizeof(float) * 3);
+            indicesBuffer = new ComputeBuffer(indices.Length, sizeof(int));
 
-            mesh.SetIndices(indices, MeshTopology.Triangles, 0, false);
+            vertexBuffer.SetData(vertices);
+            indicesBuffer.SetData(indices);
+            renderer.SetBuffer("_VoxelBuffer", particleBuffer);
+
+            if (mesh != null)
+                Destroy(mesh);
+
+            mesh = new Mesh()
+            {
+                indexFormat = IndexFormat.UInt32,
+            };
+            mesh.MarkDynamic();
+
+            mesh.vertices = new Vector3[numParticles];
+            var newIdices = Enumerable.Range(0, numParticles).ToArray();
+
+            mesh.SetIndices(newIdices, MeshTopology.Points, 0, false);
             mesh.bounds = new Bounds(Vector3.zero, Vector3.one * 10f);
 
             GetComponent<MeshFilter>().sharedMesh = mesh;
@@ -135,39 +147,33 @@ public class RealMesh : RendererBehaviour
         if (handle.IsAllocated)
             handle.Free();
 
-        if (frameData != IntPtr.Zero)
-        {
-            Marshal.FreeHGlobal(frameData);
-            frameData = IntPtr.Zero;
-        }
-
         if (pc != null)
         {
             pc.Dispose();
             pc = null;
         }
 
-        new List<ComputeBuffer>() { vertexBuffer }.ForEach((b) => {
-            if (b != null)
-                b.Release();
-            b = null;
-        });
+        new List<ComputeBuffer>() { particleBuffer, prevBuffer, vertexBuffer }.ForEach((b) =>
+          {
+              if (b != null)
+                  b.Release();
+              b = null;
+          });
     }
 
     private void OnFrames(FrameSet frames)
     {
-        using (var depthFrame = frames.DepthFrame)
+        using (var depthFrame =
+                holeFilling.ApplyFilter(
+                temporal.ApplyFilter(
+                spatial.ApplyFilter(
+                frames.DepthFrame))))
         using (var points = pc.Calculate(depthFrame))
         using (var f = frames.FirstOrDefault<VideoFrame>(stream))
         {
             pc.MapTexture(f);
-
+            memcpy(preVerticesPtr, verticesPtr, points.Count * 3 * sizeof(float));
             memcpy(verticesPtr, points.VertexData, points.Count * 3 * sizeof(float));
-
-            frameSize = depthFrame.Width * depthFrame.Height * 2 * sizeof(float);
-            if (frameData == IntPtr.Zero)
-                frameData = Marshal.AllocHGlobal(frameSize);
-            memcpy(frameData, points.TextureData, frameSize);
 
             e.Set();
         }
@@ -175,18 +181,31 @@ public class RealMesh : RendererBehaviour
 
     void Update()
     {
+        if (pause)
+            return;
         if (e.WaitOne(0))
         {
-            uvmap.LoadRawTextureData(frameData, frameSize);
-            uvmap.Apply();
-
-            //mesh.vertices = vertices;
-            //mesh.UploadMeshData(false);
             vertexBuffer.SetData(vertices);
-            
+            prevBuffer.SetData(preVertices);
+
+            var kernel = compute.FindKernel("build");
+            compute.SetBuffer(kernel, "_ParticleBuffer", particleBuffer);
+            compute.SetBuffer(kernel, "_PrevBuffer", prevBuffer);
+            compute.SetBuffer(kernel, "_VertBuffer", vertexBuffer);
+            compute.SetBuffer(kernel, "_IndicesBuffer", indicesBuffer);
+            compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
         }
     }
 
+    public struct VoxelParticle
+    {
+        public Vector3 pos;
+        public Vector3 vel;
+        public Vector3 normal;
+        public float prop;
+        public float t;
+        public float size;
+    }
 
     [DllImport("msvcrt.dll", EntryPoint = "memcpy", CallingConvention = CallingConvention.Cdecl, SetLastError = false)]
     internal static extern IntPtr memcpy(IntPtr dest, IntPtr src, int count);

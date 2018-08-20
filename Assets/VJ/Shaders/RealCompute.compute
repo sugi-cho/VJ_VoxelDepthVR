@@ -1,0 +1,39 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel build
+
+#include "RealSense.hlsl"
+
+[numthreads(8,1,1)]
+void build (uint3 id : SV_DispatchThreadID)
+{
+    uint idx = id.x;
+    voxelParticle p = _ParticleBuffer[idx];
+    uint idx0 = _IndicesBuffer[idx*3+0];
+    uint idx1 = _IndicesBuffer[idx*3+1];
+    uint idx2 = _IndicesBuffer[idx*3+2];
+
+    float3 v0 = _VertBuffer[idx0];
+    float3 v1 = _VertBuffer[idx1];
+    float3 v2 = _VertBuffer[idx2];
+
+    v0.y *= -1;
+    v1.y *= -1;
+    v2.y *= -1;
+
+    float t = frac(_Time.x*0.25 - rand(float2( idx0 * 0.0000032552, idx1 * 0.0000032552)) * 10) * 2 - 1;
+    float size = abs(v0 - v1) + abs(v1 - v2) + abs(v2 - v0);
+    float3 normal = normalize(cross(v0-v1, v2-v0));
+    float3 center = (v0+v1+v2)/3.0;
+
+    if(0.1 < edgeLength(v0,v1,v2))
+        size = 0;
+    
+    p.pos = center;
+    p.vel = 0;
+    p.normal = normal;
+    p.prop = 0;
+    p.t = 0;
+    p.size = size;
+
+    _ParticleBuffer[idx] = p;
+}

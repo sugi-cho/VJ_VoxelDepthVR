@@ -3,12 +3,12 @@
 	Properties
 	{
 		[NoScaleOffset]_MainTex("Texture", 2D) = "white" {}
-		[NoScaleOffset]_UVMap("UV", 2D) = "white" {}
 		_EdgeThreshold("threshold", Float) = 0.1
 		_GSize ("grid size", Float) = 5
 		_Color ("color", Color) = (0.5,0.5,0.5,0.5)
 		[HDR]_Spec ("speclur color", Color) = (1,1,1,1)
 		[HDR]_Line ("line color", Color) = (1,1,1,1)
+		_Smooth ("smoothness", Float) = 0.0
 	}
 	SubShader
 	{

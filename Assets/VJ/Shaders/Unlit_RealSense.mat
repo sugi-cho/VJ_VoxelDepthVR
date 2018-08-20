@@ -28,8 +28,11 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Floats:
     - _EdgeThreshold: 0.1
-    - _GSize: 20
+    - _GSize: 50
+    - _RimPower: 16
+    - _Smooth: 0.8
     m_Colors:
     - _Color: {r: 0.5, g: 0.5, b: 0.5, a: 0.5}
-    - _Line: {r: 3.6002917, g: 10.176824, b: 3.7111328, a: 1}
+    - _Line: {r: 2.3638306, g: 6.037736, b: 2.4235687, a: 1}
+    - _RimColor: {r: 12.563239, g: 11.634652, b: 3.168121, a: 1}
     - _Spec: {r: 0.39839852, g: 3.07336, b: 3.6235292, a: 1}
