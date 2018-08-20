@@ -1,0 +1,41 @@
+﻿Shader "Unlit/RealSense"
+{
+	Properties
+	{
+		[NoScaleOffset]_MainTex("Texture", 2D) = "white" {}
+		[NoScaleOffset]_UVMap("UV", 2D) = "white" {}
+		_EdgeThreshold("threshold", Float) = 0.1
+		_GSize ("grid size", Float) = 5
+		_Color ("color", Color) = (0.5,0.5,0.5,0.5)
+		[HDR]_Spec ("speclur color", Color) = (1,1,1,1)
+		[HDR]_Line ("line color", Color) = (1,1,1,1)
+	}
+	SubShader
+	{
+		Tags { "RenderType"="Opaque" }
+		LOD 100
+
+		Pass
+		{
+			Tags{ "LightMode" = "Deferred" }
+			CGPROGRAM
+			#pragma vertex vert
+			#pragma geometry geom
+			#pragma fragment frag
+			
+			#include "RealSense.hlsl"
+			ENDCG
+		}
+		Pass
+		{
+			Tags{ "LightMode" = "ShadowCaster" }
+			CGPROGRAM
+			#pragma vertex vert
+			#pragma geometry geom
+			#pragma fragment shadow_cast
+			
+			#include "RealSense.hlsl"
+			ENDCG
+		}
+	}
+}
