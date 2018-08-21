@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_Name: Unlit_RealSense
-  m_Shader: {fileID: 4800000, guid: 5554dd543a69cf649912969d617c538d, type: 3}
+  m_Shader: {fileID: 4800000, guid: e8fb8ee0ff0ba5d40bc3ada125a39bf2, type: 3}
   m_ShaderKeywords: 
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
@@ -33,6 +33,6 @@ Material:
     - _Smooth: 0.8
     m_Colors:
     - _Color: {r: 0.5, g: 0.5, b: 0.5, a: 0.5}
-    - _Line: {r: 2.3638306, g: 6.037736, b: 2.4235687, a: 1}
+    - _Line: {r: 1.1764706, g: 2.9960785, b: 1.2078432, a: 1}
     - _RimColor: {r: 12.563239, g: 11.634652, b: 3.168121, a: 1}
     - _Spec: {r: 0.39839852, g: 3.07336, b: 3.6235292, a: 1}

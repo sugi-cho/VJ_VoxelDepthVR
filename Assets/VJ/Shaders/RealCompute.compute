@@ -2,6 +2,7 @@
 #pragma kernel build
 
 #include "RealSense.hlsl"
+float time;
 
 [numthreads(8,1,1)]
 void build (uint3 id : SV_DispatchThreadID)
@@ -20,7 +21,7 @@ void build (uint3 id : SV_DispatchThreadID)
     v1.y *= -1;
     v2.y *= -1;
 
-    float t = frac(_Time.x*0.25 - rand(float2( idx0 * 0.0000032552, idx1 * 0.0000032552)) * 10) * 2 - 1;
+    float t = frac(time*0.25 - rand(float2( idx0 * 0.0000032552, idx1 * 0.0000032552)) * 10) * 2 - 1;
     float size = abs(v0 - v1) + abs(v1 - v2) + abs(v2 - v0);
     float3 normal = normalize(cross(v0-v1, v2-v0));
     float3 center = (v0+v1+v2)/3.0;
@@ -28,12 +29,14 @@ void build (uint3 id : SV_DispatchThreadID)
     if(0.1 < edgeLength(v0,v1,v2))
         size = 0;
     
-    p.pos = center;
     p.vel = 0;
-    p.normal = normal;
+    if(t<0){
+        p.pos = center;
+        p.normal = normal;
+        p.size = size;
+    }
     p.prop = 0;
-    p.t = 0;
-    p.size = size;
+    p.t = t;
 
     _ParticleBuffer[idx] = p;
 }

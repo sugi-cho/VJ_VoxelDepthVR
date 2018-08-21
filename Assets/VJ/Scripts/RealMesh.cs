@@ -193,6 +193,7 @@ public class RealMesh : RendererBehaviour
             compute.SetBuffer(kernel, "_PrevBuffer", prevBuffer);
             compute.SetBuffer(kernel, "_VertBuffer", vertexBuffer);
             compute.SetBuffer(kernel, "_IndicesBuffer", indicesBuffer);
+            compute.SetFloat("time", Time.time / 20f);
             compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
         }
     }

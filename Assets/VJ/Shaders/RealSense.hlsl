@@ -168,11 +168,13 @@ void geom_pc(point v2f input[1], inout TriangleStream<v2f> triStream)
 {
     uint idx = input[0].vIdx;
     voxelParticle p = _VoxelBuffer[idx];
-    float3 toDir = normalize(p.pos - _WorldSpaceCameraPos);
+    float st = saturate(p.t);
+    float3 center = p.pos + (float3(0, st * st * pow(p.size, -0.25), 0) + p.normal * st * 0.25);
+    float3 toDir = normalize(center - _WorldSpaceCameraPos);
     float3 axis = cross(p.normal, toDir) + float3(0, 0.543, 0);
-    float4 rot = getAngleAxisRotation(axis, saturate(p.t) * 32.0);
+    float4 rot = getAngleAxisRotation(axis, st * 32.0);
 
-    cube(p.pos, p.normal, p.size*0.2, rot, input[0], triStream);
+    cube(center, p.normal, p.size * 0.2 * (1-st), rot, input[0], triStream);
 }
 
 
@@ -204,7 +206,7 @@ void frag (
 
     UnityStandardDataToGbuffer(data, outGBuffer0, outGBuffer1, outGBuffer2);
 
-    half dstFade = saturate(1 - (dst - 1) * 0.5);
+    half dstFade = saturate(1 - (dst - 1) * 1.5);
     outEmission = w * dstFade * _Line;// + (2.0 < diff ? half4(2,0,0,0) : 0);
 }
 
