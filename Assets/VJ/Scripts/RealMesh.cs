@@ -22,7 +22,6 @@ public class RealMesh : RendererBehaviour
 
     private GCHandle handle;
     private IntPtr verticesPtr;
-    private IntPtr preVerticesPtr;
 
     public bool pause;
 
@@ -31,10 +30,8 @@ public class RealMesh : RendererBehaviour
 
     public ComputeShader compute;
     Vector3[] vertices;
-    Vector3[] preVertices;
     ComputeBuffer particleBuffer;
     ComputeBuffer vertexBuffer;
-    ComputeBuffer prevBuffer;
     ComputeBuffer indicesBuffer;
 
     SpatialFilter spatial;
@@ -74,11 +71,8 @@ public class RealMesh : RendererBehaviour
             numParticles = (profile.Width - 1) * (profile.Height - 1) * 2;
 
             vertices = new Vector3[profile.Width * profile.Height];
-            preVertices = new Vector3[profile.Width * profile.Height];
             handle = GCHandle.Alloc(vertices, GCHandleType.Pinned);
             verticesPtr = handle.AddrOfPinnedObject();
-            handle = GCHandle.Alloc(preVertices, GCHandleType.Pinned);
-            preVerticesPtr = handle.AddrOfPinnedObject();
 
             var indices = new int[(profile.Width - 1) * (profile.Height - 1) * 6];
 
@@ -104,7 +98,6 @@ public class RealMesh : RendererBehaviour
 
             particleBuffer = new ComputeBuffer(numParticles, Marshal.SizeOf(typeof(VoxelParticle)));
             vertexBuffer = new ComputeBuffer(vertices.Length, sizeof(float) * 3);
-            prevBuffer = new ComputeBuffer(vertices.Length, sizeof(float) * 3);
             indicesBuffer = new ComputeBuffer(indices.Length, sizeof(int));
 
             vertexBuffer.SetData(vertices);
@@ -153,7 +146,7 @@ public class RealMesh : RendererBehaviour
             pc = null;
         }
 
-        new List<ComputeBuffer>() { particleBuffer, prevBuffer, vertexBuffer }.ForEach((b) =>
+        new List<ComputeBuffer>() { particleBuffer, vertexBuffer, indicesBuffer }.ForEach((b) =>
           {
               if (b != null)
                   b.Release();
@@ -172,7 +165,6 @@ public class RealMesh : RendererBehaviour
         using (var f = frames.FirstOrDefault<VideoFrame>(stream))
         {
             pc.MapTexture(f);
-            memcpy(preVerticesPtr, verticesPtr, points.Count * 3 * sizeof(float));
             memcpy(verticesPtr, points.VertexData, points.Count * 3 * sizeof(float));
 
             e.Set();
@@ -186,14 +178,23 @@ public class RealMesh : RendererBehaviour
         if (e.WaitOne(0))
         {
             vertexBuffer.SetData(vertices);
-            prevBuffer.SetData(preVertices);
 
             var kernel = compute.FindKernel("build");
             compute.SetBuffer(kernel, "_ParticleBuffer", particleBuffer);
-            compute.SetBuffer(kernel, "_PrevBuffer", prevBuffer);
             compute.SetBuffer(kernel, "_VertBuffer", vertexBuffer);
             compute.SetBuffer(kernel, "_IndicesBuffer", indicesBuffer);
             compute.SetFloat("time", Time.time / 20f);
+            compute.SetFloat("dt", Time.deltaTime);
+            compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
+        }
+        if(Input.GetKeyDown(KeyCode.Space))
+        {
+            var kernel = compute.FindKernel("breakGrid");
+            compute.SetBuffer(kernel, "_ParticleBuffer", particleBuffer);
+            compute.SetBuffer(kernel, "_VertBuffer", vertexBuffer);
+            compute.SetBuffer(kernel, "_IndicesBuffer", indicesBuffer);
+            compute.SetFloat("time", Time.time / 20f);
+            compute.SetFloat("dt", Time.deltaTime);
             compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
         }
     }

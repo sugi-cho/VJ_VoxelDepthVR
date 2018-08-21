@@ -9,6 +9,8 @@
 		[HDR]_Spec("speclur color", Color) = (1,1,1,1)
 		[HDR]_Line("line color", Color) = (1,1,1,1)
 		_Smooth("smoothness", Float) = 0.0
+		[HDR]_Col0("emission color0", Color) = (1,0,0,0)
+		[HDR]_Col1("emission color1", Color) = (1,1,0,0)
 	}
 		SubShader
 		{
