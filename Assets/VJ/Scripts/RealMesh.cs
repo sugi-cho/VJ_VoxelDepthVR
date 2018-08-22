@@ -104,6 +104,12 @@ public class RealMesh : RendererBehaviour
             indicesBuffer.SetData(indices);
             renderer.SetBuffer("_VoxelBuffer", particleBuffer);
 
+            var kernel = compute.FindKernel("init");
+            compute.SetBuffer(kernel, "_IndicesBuffer", indicesBuffer);
+            compute.SetBuffer(kernel, "_ParticleBuffer", particleBuffer);
+            compute.SetFloat("numP", 1f / numParticles);
+            compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
+
             if (mesh != null)
                 Destroy(mesh);
 
@@ -187,24 +193,15 @@ public class RealMesh : RendererBehaviour
             compute.SetFloat("dt", Time.deltaTime);
             compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
         }
-        if(Input.GetKeyDown(KeyCode.Space))
-        {
-            var kernel = compute.FindKernel("breakGrid");
-            compute.SetBuffer(kernel, "_ParticleBuffer", particleBuffer);
-            compute.SetBuffer(kernel, "_VertBuffer", vertexBuffer);
-            compute.SetBuffer(kernel, "_IndicesBuffer", indicesBuffer);
-            compute.SetFloat("time", Time.time / 20f);
-            compute.SetFloat("dt", Time.deltaTime);
-            compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
-        }
     }
 
     public struct VoxelParticle
     {
+        public Vector3 vert;
         public Vector3 pos;
         public Vector3 vel;
-        public Vector3 normal;
-        public float prop;
+        public Vector3 dir;
+        public Vector4 prop;
         public float t;
         public float size;
     }

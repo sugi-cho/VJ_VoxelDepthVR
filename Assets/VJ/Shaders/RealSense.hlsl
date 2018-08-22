@@ -6,10 +6,11 @@
 
 struct voxelParticle
 {
+    float3 vert;
     float3 pos;
     float3 vel;
-    float3 normal;
-    float prop;
+    float3 dir;
+    float4 prop;
     float t;
     float size;
 };
@@ -44,21 +45,7 @@ float4 _MainTex_ST;
 half4 _Color, _Spec, _Line, _Col0, _Col1;
 float _EdgeThreshold, _GSize, _Smooth;
 			
-v2f vert (appdata v)
-{
-	v2f o = (v2f)0;
-	v.vertex.xyz = _VertBuffer[v.vIdx];
-	v.vertex.y *= -1;
-
-	o.vertex = UnityObjectToClipPos(v.vertex);
-	o.wPos = mul(unity_ObjectToWorld, v.vertex).xyz;
-    o.prePos = mul(unity_ObjectToWorld, float4(_PrevBuffer[v.vIdx], 1)).xyz;
-	o.uv = v.uv;
-	o.vIdx = v.vIdx;
-
-	return o;
-}
-v2f vert_pc(appdata v)
+v2f vert(appdata v)
 {
     v2f o = (v2f) 0;
     o.vIdx = v.vIdx;
@@ -81,7 +68,7 @@ float3 dfNoise(float3 pos)
     return divFree;
 }
 
-void cube(float3 center,float3 normal, float size, float4 rot, v2f o, inout TriangleStream<v2f> triStream)
+void cube(float3 center,float3 dir, float size, v2f o, inout TriangleStream<v2f> triStream)
 {
     float3 normals[6] = {
         float3(-1, 0, 0), float3( 1, 0, 0),
@@ -95,7 +82,7 @@ void cube(float3 center,float3 normal, float size, float4 rot, v2f o, inout Tria
         float3( 0,-1, 0), float3( 0, 1, 0),
     };
 
-    float4 q = fromToRotation(normals[0], normal);
+    float4 q = fromToRotation(normals[0], dir);
 
     for (int i = 0; i < 6; i++)
     {
@@ -104,31 +91,25 @@ void cube(float3 center,float3 normal, float size, float4 rot, v2f o, inout Tria
         float3 up = cross(normal, right);
         float3 p =  size * normal;
 
-        normal = rotateWithQuaternion(normal, rot);
-
         float3 pos = p + size * (-right - up);
-        pos = rotateWithQuaternion(pos, rot);
         o.wPos = pos + center;
         o.normal = UnityObjectToWorldNormal(normal);
         o.vertex = UnityObjectToClipPos(o.wPos);
         triStream.Append(o);
 
         pos = p + size * (right - up);
-        pos = rotateWithQuaternion(pos, rot);
         o.wPos = pos + center;
         o.normal = UnityObjectToWorldNormal(normal);
         o.vertex = UnityObjectToClipPos(o.wPos);
         triStream.Append(o);
 
         pos = p + size * (-right + up);
-        pos = rotateWithQuaternion(pos, rot);
         o.wPos = pos + center;
         o.normal = UnityObjectToWorldNormal(normal);
         o.vertex = UnityObjectToClipPos(o.wPos);
         triStream.Append(o);
 
         pos = p + size * ( right + up);
-        pos = rotateWithQuaternion(pos, rot);
         o.wPos = pos + center;
         o.normal = UnityObjectToWorldNormal(normal);
         o.vertex = UnityObjectToClipPos(o.wPos);
@@ -144,57 +125,20 @@ void getPlanePos(float3 center, float size, inout float3 pos, inout float3 norma
 }
 
 [maxvertexcount(24)]
-void geom(triangle v2f input[3], inout TriangleStream<v2f> triStream)
-{
-	v2f p0 = input[0];
-	v2f p1 = input[1];
-	v2f p2 = input[2];
-
-	p0.bary = half3(1, 0, 0);
-	p1.bary = half3(0, 1, 0);
-	p2.bary = half3(0, 0, 1);
-
-    float t = frac(_Time.x*0.25 - rand(p0.vIdx * 0.0000032552) * 10) * 2 - 1;
-    //t = 0;
-    float st = saturate(t);
-
-    half size = abs(p0.wPos - p1.wPos) + abs(p1.wPos - p2.wPos) + abs(p2.wPos - p0.wPos);
-    size *= (1 - st) * (-3 < t) * .33;
-
-	half3 normal = normalize(cross(p0.wPos - p1.wPos, p2.wPos - p0.wPos));
-	p0.normal = p1.normal = p2.normal = normal;
-    half3 center = (p0.wPos + p1.wPos + p2.wPos) / 3 + (float3(0, st * st * 0.005 * pow(size,-0.25), 0) + normal * st * 0.25);
-    float3 toDir = normalize(center - _WorldSpaceCameraPos);
-    float3 axis = cross(normal, toDir) + float3(0,0.543,0);
-    float4 rot = getAngleAxisRotation(axis, st * 32.0);
-
-	if (edgeLength(p0.wPos.xyz, p1.wPos.xyz, p2.wPos.xyz) < _EdgeThreshold) {
-        cube(center, normal, size, rot, p0, triStream);
-    }
-}
-[maxvertexcount(24)]
-void geom_pc(point v2f input[1], inout TriangleStream<v2f> triStream)
+void geom(point v2f input[1], inout TriangleStream<v2f> triStream)
 {
     uint idx = input[0].vIdx;
     voxelParticle p = _VoxelBuffer[idx];
-    float st = saturate(p.t);
-    float3 center = p.pos + (float3(0, st * st * pow(p.size, -0.25), 0) + p.normal * st * 0.25);
+
+    float3 center = p.pos;
     float3 toDir = normalize(center - _WorldSpaceCameraPos);
-    float3 axis = cross(p.normal, toDir) + float3(0, 0.543, 0);
-    float4 rot = getAngleAxisRotation(axis, st * 32.0);
-    float size = p.size * 0.35 * (1 - saturate(st * 3.0));
+    float3 axis = cross(p.dir, toDir) + float3(0, 0.543, 0);
+    float size = p.size * 0.35;
+    size *= p.prop.y ? 1 : saturate(p.t * 0.1);
+    size *= saturate(1.0 - p.prop.y * pow(p.t * 0.1, 2.0));
+    size *= saturate(1.0 - p.prop.z * p.t * p.t);
 
-    if (1.0 <= p.prop && p.prop <= 2.5)
-    {
-        float t = saturate(p.prop - 1.0);
-        center = p.pos;
-        size = p.size * 0.35 * (1.0 - t);
-        rot = float4(0,0,0,1);
-    }
-    else if (3.0<=p.prop)
-        size = 0;
-
-    cube(center, p.normal, size, rot, input[0], triStream);
+    cube(center, p.dir, size, input[0], triStream);
 }
 
 		
@@ -228,9 +172,8 @@ void frag (
     UnityStandardDataToGbuffer(data, outGBuffer0, outGBuffer1, outGBuffer2);
 
     half dstFade = saturate(1 - (dst - 1) * 1.5);
-    float t = saturate(p.prop - 1);
-    outEmission = (1 < p.prop && p.prop < 2.5) ? 
-        lerp(_Col0, _Col1, t * t):w * dstFade * _Line;
+    float t = saturate(p.t);
+    outEmission = lerp(w * dstFade * _Line, lerp(_Col0, _Col1, t * t), p.prop.z);
 }
 
 half4 shadow_cast(v2f i):SV_Target

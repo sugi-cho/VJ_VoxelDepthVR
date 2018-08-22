@@ -21,8 +21,8 @@
 			{
 				Tags{ "LightMode" = "Deferred" }
 				CGPROGRAM
-				#pragma vertex vert_pc
-				#pragma geometry geom_pc
+				#pragma vertex vert
+				#pragma geometry geom
 				#pragma fragment frag
 
 				#include "RealSense.hlsl"
@@ -32,8 +32,8 @@
 			{
 				Tags{ "LightMode" = "ShadowCaster" }
 				CGPROGRAM
-				#pragma vertex vert_pc
-				#pragma geometry geom_pc
+				#pragma vertex vert
+				#pragma geometry geom
 				#pragma fragment shadow_cast
 
 				#include "RealSense.hlsl"

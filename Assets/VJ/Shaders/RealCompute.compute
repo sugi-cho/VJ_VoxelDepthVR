@@ -1,10 +1,25 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel init
 #pragma kernel build
-#pragma kernel breakGrid
-#pragma kernel breakAll
 
 #include "RealSense.hlsl"
-float time, dt;
+float time, dt, numP;
+float4 impact;
+
+
+[numthreads(8,1,1)]
+void init (uint3 id : SV_DispatchThreadID)
+{
+    uint idx = id.x;
+    voxelParticle p = _ParticleBuffer[idx];
+    uint idx0 = _IndicesBuffer[idx*3+0];
+    uint idx1 = _IndicesBuffer[idx*3+1];
+    float rnd = rand(float2(idx0 * numP, idx1 * numP+0.5));
+    float t = rnd * 60.0;
+    p.t = t % 40.0;
+    p.prop.y = 40.0 < t;
+    _ParticleBuffer[idx] = p;
+}
 
 [numthreads(8,1,1)]
 void build (uint3 id : SV_DispatchThreadID)
@@ -14,6 +29,7 @@ void build (uint3 id : SV_DispatchThreadID)
     uint idx0 = _IndicesBuffer[idx*3+0];
     uint idx1 = _IndicesBuffer[idx*3+1];
     uint idx2 = _IndicesBuffer[idx*3+2];
+    float rnd = rand(float2(idx0 * numP, idx1 * numP+0.5));
 
     float3 v0 = _VertBuffer[idx0];
     float3 v1 = _VertBuffer[idx1];
@@ -22,69 +38,51 @@ void build (uint3 id : SV_DispatchThreadID)
     v0.y *= -1;
     v1.y *= -1;
     v2.y *= -1;
-
-    float t = frac(time*.25 - rand(float2( idx0 * 0.0000032552, idx1 * 0.0000032552)) * 100) * 2.0 - 1.0;
+    
     float size = abs(v0 - v1) + abs(v1 - v2) + abs(v2 - v0);
+    size = lerp(size,p.size,exp(-dt*10.0));
+    size *= step(edgeLength(v0,v1,v2),0.1);
     float3 normal = normalize(cross(v0-v1, v2-v0));
     float3 center = (v0+v1+v2)/3.0;
+    float3 preVert = p.vert;
+    half diff = length(center) - length(preVert);
 
-    half diff = length(center) - length(p.pos);
+    float t = p.t + dt;
+    float4 prop = p.prop;
+    bool change = ((1-prop.y)*(40.0 + rnd*5.0) + prop.y * 20) < t;
+    t = lerp(t, 0, change);
 
-    if(0.1 < edgeLength(v0,v1,v2))
-        size = 0;
+    prop.x = (1.0 < diff && length(preVert) < 5.0);
+    prop.y = (prop.y + change) % 2;
 
-    if(t < 0 && p.prop < 1.0){
-        p.vel = normal;
-        p.pos = center;
-        p.normal = normal;
-        p.size = lerp(size,p.size,exp(-dt*10));
-        p.prop = 0;
-    }
-    else if((p.prop < 1.0 || 2.5 < p.prop) && 1.0 < diff && length(p.pos) < 5.0){
-        p.prop = 1.0;
-    }
+    float emitFlag = prop.z;
+    prop.z = prop.y && (prop.x || prop.z);
+    emitFlag = !emitFlag && prop.z;
+    t = lerp(t,0.0,emitFlag);
+    p.pos = lerp(p.pos, preVert, emitFlag);
+    p.vel = lerp(p.vel, p.dir, emitFlag);
 
-    if(1.0 <= p.prop && p.prop < 2.5){
-        float t = saturate(p.prop-1.0);
-        float3 n = dfNoise(p.pos) * t;
-        p.vel += float3(0,1,0) * dt;
-        p.pos += (p.vel+n) * dt;
-        p.vel *= exp(-dt*10);
-        p.normal = normalize(p.vel);
-        p.prop += dt;
-        if(2.5 < p.prop){
-            p.vel = normal;
-            p.pos = center;
-            p.normal = normal;
-            p.size = size;
-            p.prop = 3;
-        }
-    }
-    else if(2.5 < p.prop && 0.0 < t)
-        p.prop = 0;
+    prop.w = prop.y && prop.w;
+    
+    float3 up = float3(0, 0.125 * pow(max(p.size,0.001),-0.5), 0)*dt;
+    float3 gravity = float3(0,-1,0) * dt;
+    float3 curl = dfNoise(p.pos)*0.1;
+
+    float3 vel = p.vel*exp(-dt*10.0) + up*prop.y + gravity*prop.w;
+    vel = lerp(0, vel, prop.y);
+    float3 pos = p.pos + vel * dt + curl*dt*prop.z;
+    pos = lerp(center, pos, prop.y);
+    float3 dir = rotateAngleAxis(p.dir,normal+float3(1,0,0),3*dt);
+    dir = lerp(normal, dir, prop.y);
+    size = lerp(size, p.size, p.prop.y);
+
+    p.prop = prop;
+    p.vert = center;
+    p.vel = vel;
+    p.pos = pos;
+    p.dir = dir;
+    p.size = size;
     p.t = t;
 
-    _ParticleBuffer[idx] = p;
-}
-
-[numthreads(8,1,1)]
-void breakAll (uint3 id : SV_DispatchThreadID)
-{
-    uint idx = id.x;
-    voxelParticle p = _ParticleBuffer[idx];
-    p.prop = 1.0;
-    _ParticleBuffer[idx] = p;
-}
-
-[numthreads(8,1,1)]
-void breakGrid (uint3 id : SV_DispatchThreadID)
-{
-    uint idx = id.x;
-    voxelParticle p = _ParticleBuffer[idx];
-    float2 seed = float2(floor(p.pos.x*12.0 + floor(5 * p.pos.z) ) * 0.543, floor(p.pos.y*15.0 ) * 0.4321) + frac(time);
-    float r = rand(seed);
-    if(r < 0.1 && p.t < 1.0){
-        p.prop = 1.0;
-    }
     _ParticleBuffer[idx] = p;
 }
