@@ -13,6 +13,7 @@ public class Control : SingletonMonoBehaviour<Control>
     [Header("camera, light")]
     public Transform cameraTrs;
     public PostProcessVolume postProcessVolume;
+    Camera handCam;
     DepthOfField dof;
 
     public Transform lightTrs;
@@ -26,15 +27,50 @@ public class Control : SingletonMonoBehaviour<Control>
 
     [Header("motion controller settings")]
     public float stickSleep = 0.1f;
-
-
-    public float focusDistance = 0.4f;
+    public float dragFactor = 10f;
+    public float rotateSpeedMax = 10f;
+    public float breakRadius = 0.5f;
+    public float focalDistanceMin = 0.3f;
+    public float focalDistanceMax = 5.0f;
 
     public RealMesh realMesh;
     public Transform turnTable;
 
+    public void OnGripLight(Transform trs)
+    {
+        GripObject(lightTrs, trs);
+    }
+    public void OnGripCamera(Transform trs)
+    {
+        GripObject(cameraTrs, trs);
+    }
+    void GripObject(Transform gripped, Transform gripper)
+    {
+        gripped.position = Vector3.Lerp(gripper.position, gripped.position, Mathf.Exp(-Time.deltaTime * dragFactor));
+        gripped.rotation = Quaternion.Lerp(gripper.rotation, gripped.rotation, Mathf.Exp(-Time.deltaTime * dragFactor));
+    }
 
-    Vector3 resetTurnPos;
+    public void OnLightColor(Vector2 axis)
+    {
+        var angle = Mathf.Atan2(axis.y, axis.x) / (2f * Mathf.PI);
+        angle = (angle + 1f) % 1f;
+        keyLight.color = Color.HSVToRGB(angle, 0.4f, 1f);
+    }
+    public void OnLight(bool vanish)
+    {
+        keyLight.enabled = !vanish;
+    }
+
+    public void SetFocalDistance(Vector2 axis)
+    {
+        var t = Mathf.InverseLerp(-1f, 1f, axis.y);
+        dof.focusDistance.value = Mathf.Lerp(focalDistanceMin, focalDistanceMax, t);
+    }
+
+    public void TogglePause(Transform trs)
+    {
+        realMesh.pause = !realMesh.pause;
+    }
 
     public void ResetStage()
     {
@@ -47,7 +83,7 @@ public class Control : SingletonMonoBehaviour<Control>
         headDir.y = 0f;
         headDir = headDir.normalized;
         var rot = Quaternion.LookRotation(headDir);
-        stageRoot.position = head.position + headDir*0.25f;
+        stageRoot.position = head.position + headDir * 0.25f;
         stageRoot.rotation = rot;
     }
 
@@ -59,6 +95,7 @@ public class Control : SingletonMonoBehaviour<Control>
     // Use this for initialization
     void Start()
     {
+        handCam = cameraTrs.GetComponent<Camera>();
         dof = postProcessVolume.profile.GetSetting<DepthOfField>();
         keyLight = lightTrs.GetComponent<Light>();
         litDefaultPos = lightTrs.localPosition;
@@ -68,7 +105,6 @@ public class Control : SingletonMonoBehaviour<Control>
     // Update is called once per frame
     void Update()
     {
-        dof.focusDistance.value = focusDistance;
         if (Input.GetKeyDown(KeyCode.Space))
             ResetStage();
     }

@@ -52,7 +52,7 @@ public class MotionController : MonoBehaviour
         if (Control.Instance.stickSleep < stickAxis.x || Control.Instance.stickSleep < stickAxis.y)
             onStick.Invoke(stickAxis);
 
-        if (device.GetPress(trigger))
+        if (device.GetPressDown(trigger))
             onTrigger.Invoke(transform);
 
         if (device.GetPressDown(menu))

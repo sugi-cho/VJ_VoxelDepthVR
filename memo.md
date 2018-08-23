@@ -64,7 +64,7 @@
 #### Right
 
 - カメラの移動 grab
-- カメラの焦点距離を変更 pad.x
+- カメラの焦点距離を変更 pad.y
 - 全体の移動 stick.xy
 - 動きをPause trigger
 - リセット menu
