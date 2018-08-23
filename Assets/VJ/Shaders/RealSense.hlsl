@@ -136,7 +136,7 @@ void geom(point v2f input[1], inout TriangleStream<v2f> triStream)
     float size = p.size * 0.35;
     size *= p.prop.y ? 1 : saturate(p.t * 0.1);
     size *= saturate(1.0 - p.prop.y * pow(p.t * 0.1, 2.0));
-    size *= saturate(1.0 - p.prop.z * p.t * p.t);
+    size *= saturate(1.0 - p.prop.z * p.t * p.t * 0.8);
 
     cube(center, p.dir, size, input[0], triStream);
 }
@@ -150,14 +150,14 @@ void frag (
     out half4 outEmission : SV_Target3)
 {
     voxelParticle p = _VoxelBuffer[i.vIdx];
-
-    float gsize = lerp(_GSize, _GSize * 0.1, i.wPos.z * 0.1);
-	half3 d = fwidth(frac(i.wPos*gsize));
-    half3 a3 = smoothstep(half3(0, 0, 0), d * 0.5, frac(i.wPos * gsize));
-	half w = 1.0 - min(min(a3.x, a3.y), a3.z);
     
     half3 view = UnityWorldSpaceViewDir(i.wPos);
     half dst = length(view);
+
+    float gsize = lerp(_GSize, _GSize * 0.1,dst * 0.1);
+	half3 d = fwidth(frac(i.wPos*gsize));
+    half3 a3 = smoothstep(half3(0, 0, 0), d * 0.5, frac(i.wPos * gsize));
+	half w = 1.0 - min(min(a3.x, a3.y), a3.z);
     
     UnityStandardData data;
 
@@ -171,7 +171,7 @@ void frag (
 
     UnityStandardDataToGbuffer(data, outGBuffer0, outGBuffer1, outGBuffer2);
 
-    half dstFade = saturate(1 - (dst - 1) * 1.5);
+    half dstFade = saturate(1 - (dst - 1) * 0.5);
     float t = saturate(p.t);
     outEmission = lerp(w * dstFade * _Line, lerp(_Col0, _Col1, t * t), p.prop.z);
 }

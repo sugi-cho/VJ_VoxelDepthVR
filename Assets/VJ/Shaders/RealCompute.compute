@@ -52,7 +52,7 @@ void build (uint3 id : SV_DispatchThreadID)
     bool change = ((1-prop.y)*(40.0 + rnd*5.0) + prop.y * 20) < t;
     t = lerp(t, 0, change);
 
-    prop.x = (1.0 < diff && length(preVert) < 5.0);
+    prop.x = (0.5 < diff && length(preVert) < 5.0);
     prop.y = (prop.y + change) % 2;
 
     float emitFlag = prop.z;
@@ -64,15 +64,16 @@ void build (uint3 id : SV_DispatchThreadID)
 
     prop.w = prop.y && prop.w;
     
-    float3 up = float3(0, 0.125 * pow(max(p.size,0.001),-0.5), 0)*dt;
+    float3 up = float3(0, 0.04 * pow(max(p.size,0.001),-0.5), 0)*dt;
     float3 gravity = float3(0,-1,0) * dt;
-    float3 curl = dfNoise(p.pos)*0.1;
+    float3 curl = dfNoise(p.pos*2.0)*0.5*t*t;
 
     float3 vel = p.vel*exp(-dt*10.0) + up*prop.y + gravity*prop.w;
+    vel += change * prop.y * normal;
     vel = lerp(0, vel, prop.y);
     float3 pos = p.pos + vel * dt + curl*dt*prop.z;
     pos = lerp(center, pos, prop.y);
-    float3 dir = rotateAngleAxis(p.dir,normal+float3(1,0,0),3*dt);
+    float3 dir = rotateAngleAxis(p.dir,normal+float3(1,1,0),3*dt);
     dir = lerp(normal, dir, prop.y);
     size = lerp(size, p.size, p.prop.y);
 
