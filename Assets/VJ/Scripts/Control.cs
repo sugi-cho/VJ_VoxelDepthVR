@@ -17,6 +17,11 @@ public class Control : MonoBehaviour
 
     Vector3 resetTurnPos;
 
+    public void Reset()
+    {
+
+    }
+
     public void ResetRotate()
     {
         turnPoint.position = resetTurnPos;
