@@ -3,30 +3,52 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering.PostProcessing;
 
-public class Control : MonoBehaviour
+using sugi.cc;
+
+public class Control : SingletonMonoBehaviour<Control>
 {
+    [Header("VR Control")]
+    public Transform head;
+
+    [Header("camera, light")]
+    public Transform cameraTrs;
+    public PostProcessVolume postProcessVolume;
+    DepthOfField dof;
+
+    public Transform lightTrs;
+    Light keyLight;
+    Vector3 litDefaultPos;
+    Quaternion litDefaultRot;
+
+    [Header("stage")]
+    public Transform stageRoot;
+    public Transform turnObject;
+
+    [Header("motion controller settings")]
+    public float stickSleep = 0.1f;
+
 
     public float focusDistance = 0.4f;
-    public Transform turnPoint;
 
     public RealMesh realMesh;
     public Transform turnTable;
-    public PostProcessVolume postProcessVolume;
-    DepthOfField dof;
 
 
     Vector3 resetTurnPos;
 
-    public void Reset()
+    public void ResetStage()
     {
+        lightTrs.localPosition = litDefaultPos;
+        lightTrs.localRotation = litDefaultRot;
+        turnTable.localPosition = cameraTrs.localPosition = Vector3.zero;
+        turnTable.localRotation = cameraTrs.localRotation = Quaternion.identity;
 
-    }
-
-    public void ResetRotate()
-    {
-        turnPoint.position = resetTurnPos;
-        turnTable.localPosition = Vector3.zero;
-        turnTable.localRotation = Quaternion.identity;
+        var headDir = head.forward;
+        headDir.y = 0f;
+        headDir = headDir.normalized;
+        var rot = Quaternion.LookRotation(headDir);
+        stageRoot.position = head.position + headDir*0.25f;
+        stageRoot.rotation = rot;
     }
 
     public void TogglePauseVoxels()
@@ -37,14 +59,17 @@ public class Control : MonoBehaviour
     // Use this for initialization
     void Start()
     {
-        resetTurnPos = turnPoint.position;
         dof = postProcessVolume.profile.GetSetting<DepthOfField>();
+        keyLight = lightTrs.GetComponent<Light>();
+        litDefaultPos = lightTrs.localPosition;
+        litDefaultRot = lightTrs.localRotation;
     }
 
     // Update is called once per frame
     void Update()
     {
         dof.focusDistance.value = focusDistance;
-        turnTable.RotateAround(turnPoint.position, Vector3.up, turnPoint.localPosition.y * 10f * Time.deltaTime);
+        if (Input.GetKeyDown(KeyCode.Space))
+            ResetStage();
     }
 }
