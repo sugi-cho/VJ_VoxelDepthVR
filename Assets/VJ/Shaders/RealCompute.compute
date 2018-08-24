@@ -1,6 +1,8 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel init
 #pragma kernel build
+#pragma kernel emitLit
+#pragma kernel addImpact
 
 #include "RealSense.hlsl"
 float time, dt, numP;
@@ -15,7 +17,8 @@ void init (uint3 id : SV_DispatchThreadID)
     uint idx0 = _IndicesBuffer[idx*3+0];
     uint idx1 = _IndicesBuffer[idx*3+1];
     uint idx2 = _IndicesBuffer[idx*3+2];
-    float rnd = rand(float2(idx0 * numP, idx1 * numP+0.5));
+    float rnd1 = rand(float2(idx0 * numP, idx1 * numP+0.5));
+    float rnd2 = rand(float2(idx1 * numP, idx2 * numP+0.5));
 
     float3 v0 = _VertBuffer[idx0];
     float3 v1 = _VertBuffer[idx1];
@@ -26,7 +29,6 @@ void init (uint3 id : SV_DispatchThreadID)
     v2.y *= -1;
 
     float size = abs(v0 - v1) + abs(v1 - v2) + abs(v2 - v0);
-    size = lerp(size,p.size,exp(-dt*10.0));
     size *= step(edgeLength(v0,v1,v2),0.1);
     float3 normal = float3(0,0,1);
     float3 center = (v0+v1+v2)/3.0;
@@ -37,7 +39,7 @@ void init (uint3 id : SV_DispatchThreadID)
     p.dir = normal;
     p.size = size;
 
-    float t = rnd * 60.0;
+    float t = frac(rnd1+rnd2*0.33) * 60.0;
     p.t = t % 40.0;
     p.prop.y = 40.0 < t;
 
@@ -107,6 +109,49 @@ void build (uint3 id : SV_DispatchThreadID)
     p.dir = dir;
     p.size = size;
     p.t = t;
+
+    _ParticleBuffer[idx] = p;
+}
+
+float3 effectPos;
+float effectVal;
+
+[numthreads(8,1,1)]
+void emitLit(uint3 id : SV_DispatchThreadID)
+{
+    uint idx = id.x;
+
+    uint idx0 = _IndicesBuffer[idx*3+0];
+    uint idx1 = _IndicesBuffer[idx*3+1];
+    uint idx2 = _IndicesBuffer[idx*3+2];
+    float3 rnd = rand3(float3(idx0 * numP, idx1 * numP+0.33+dt, idx2 * numP+0.7532+frac(time)));
+    float r = dot(rnd,rnd);    
+
+    voxelParticle p = _ParticleBuffer[idx];
+
+    float flag = 10.0 < p.t * p.prop.y && effectVal < r && p.prop.z < 1;
+
+    p.pos = lerp(p.pos, effectPos, flag);
+    p.vel = lerp(p.vel, normalize(rnd-0.5)*2, flag);
+    p.t = lerp(p.t, 0.0, flag);
+    p.prop.z = p.prop.z || flag;
+
+    _ParticleBuffer[idx] = p;
+}
+
+[numthreads(8,1,1)]
+void addImpact(uint3 id : SV_DispatchThreadID)
+{
+    uint idx = id.x;
+    voxelParticle p = _ParticleBuffer[idx];
+    
+    float3 fromTo = p.pos - effectPos;
+    float d = length(fromTo);
+    float impact = max(0.0, effectVal - d);
+    p.prop.w = 0 < impact;
+    p.vel += normalize(fromTo) * impact * impact * 128;
+    p.prop.y = p.prop.w || p.prop.y;
+    p.t = (p.prop.y<1 && p.prop.w) ? 0 : p.t;
 
     _ParticleBuffer[idx] = p;
 }

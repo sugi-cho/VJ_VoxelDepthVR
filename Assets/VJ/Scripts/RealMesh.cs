@@ -39,6 +39,8 @@ public class RealMesh : RendererBehaviour
     HoleFillingFilter holeFilling;
 
     int numParticles;
+    public float particleEmitRate = 0.01f;
+    public float impactRadius = 0.25f;
 
     public void ResetParticle()
     {
@@ -53,11 +55,27 @@ public class RealMesh : RendererBehaviour
     public void EmitParticle(Vector3 pos)
     {
         pos = transform.InverseTransformPoint(pos);
+
+        var kernel = compute.FindKernel("emitLit");
+        compute.SetBuffer(kernel, "_ParticleBuffer", particleBuffer);
+        compute.SetBuffer(kernel, "_IndicesBuffer", indicesBuffer);
+        compute.SetFloat("numP", 1f / numParticles);
+        compute.SetVector("effectPos", pos);
+        compute.SetFloat("effectVal", particleEmitRate);
+        compute.SetFloat("time", Time.time / 20f);
+        compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
     }
 
     public void AddImpact(Vector3 pos)
     {
         pos = transform.InverseTransformPoint(pos);
+
+        var kernel = compute.FindKernel("addImpact");
+        compute.SetBuffer(kernel, "_ParticleBuffer", particleBuffer);
+        compute.SetFloat("numP", 1f / numParticles);
+        compute.SetVector("effectPos", pos);
+        compute.SetFloat("effectVal", impactRadius);
+        compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
     }
 
     void Start()
@@ -208,7 +226,6 @@ public class RealMesh : RendererBehaviour
             compute.SetBuffer(kernel, "_ParticleBuffer", particleBuffer);
             compute.SetBuffer(kernel, "_VertBuffer", vertexBuffer);
             compute.SetBuffer(kernel, "_IndicesBuffer", indicesBuffer);
-            compute.SetFloat("time", Time.time / 20f);
             compute.SetFloat("dt", Time.deltaTime);
             compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
         }

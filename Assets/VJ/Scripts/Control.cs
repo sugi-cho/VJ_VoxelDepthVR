@@ -99,10 +99,12 @@ public class Control : SingletonMonoBehaviour<Control>
     #region Trigger
     public void AddInpact(Transform trs)
     {
+        trs4debug.position = trs.position;
         realMesh.AddImpact(trs.position);
     }
     public void TogglePause(Transform trs)
     {
+        trs4debug.position = trs.position;
         realMesh.pause = !realMesh.pause;
     }
     #endregion
@@ -125,6 +127,8 @@ public class Control : SingletonMonoBehaviour<Control>
         var rot = Quaternion.LookRotation(headDir);
         stageRoot.position = head.position + headDir * 0.25f;
         stageRoot.rotation = rot;
+
+        realMesh.ResetParticle();
     }
     #endregion
 
