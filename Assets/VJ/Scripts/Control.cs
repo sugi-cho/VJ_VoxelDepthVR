@@ -34,6 +34,7 @@ public class Control : SingletonMonoBehaviour<Control>
     public float stickSleep = 0.1f;
     public float dragFactor = 10f;
     public float rotateSpeedMax = 10f;
+    public float moveSpeedMax = 3f;
     public float breakRadius = 0.5f;
     public float focalDistanceMin = 0.3f;
     public float focalDistanceMax = 5.0f;
@@ -100,7 +101,7 @@ public class Control : SingletonMonoBehaviour<Control>
         axis.x = -axis.x * axis.x * Mathf.Sign(axis.x);
         axis.y = -axis.y * axis.y * Mathf.Sign(axis.y);
 
-        stageRoot.position += (head.right * axis.x + head.forward * axis.y) * Time.deltaTime;
+        stageRoot.position += (head.right * axis.x + head.forward * axis.y) * Time.deltaTime * moveSpeedMax;
     }
     #endregion
 
