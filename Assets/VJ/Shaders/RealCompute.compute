@@ -14,10 +14,33 @@ void init (uint3 id : SV_DispatchThreadID)
     voxelParticle p = _ParticleBuffer[idx];
     uint idx0 = _IndicesBuffer[idx*3+0];
     uint idx1 = _IndicesBuffer[idx*3+1];
+    uint idx2 = _IndicesBuffer[idx*3+2];
     float rnd = rand(float2(idx0 * numP, idx1 * numP+0.5));
+
+    float3 v0 = _VertBuffer[idx0];
+    float3 v1 = _VertBuffer[idx1];
+    float3 v2 = _VertBuffer[idx2];
+
+    v0.y *= -1;
+    v1.y *= -1;
+    v2.y *= -1;
+
+    float size = abs(v0 - v1) + abs(v1 - v2) + abs(v2 - v0);
+    size = lerp(size,p.size,exp(-dt*10.0));
+    size *= step(edgeLength(v0,v1,v2),0.1);
+    float3 normal = float3(0,0,1);
+    float3 center = (v0+v1+v2)/3.0;
+
+    p.vert = center;
+    p.vel = 0;
+    p.pos = center;
+    p.dir = normal;
+    p.size = size;
+
     float t = rnd * 60.0;
     p.t = t % 40.0;
     p.prop.y = 40.0 < t;
+
     _ParticleBuffer[idx] = p;
 }
 

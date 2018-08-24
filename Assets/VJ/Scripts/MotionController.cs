@@ -11,7 +11,7 @@ public class MotionController : MonoBehaviour
     public TransformEvent onGrip;
     public XYEvent onTouchPad;
     public XYEvent onStick;
-    public ButtonEvent onPadButton;
+    public TransformEvent onPadButton;
     public TransformEvent onTrigger;
     public UnityEvent onMenu;
 
@@ -44,10 +44,8 @@ public class MotionController : MonoBehaviour
         
         if (device.GetTouch(touchPad))
             onTouchPad.Invoke(padAxis);
-        if (device.GetPressDown(touchPad))
-            onPadButton.Invoke(true);
-        else if (device.GetPressUp(touchPad))
-            onPadButton.Invoke(false);
+        if (device.GetPress(touchPad))
+            onPadButton.Invoke(transform);
 
         if (Control.Instance.stickSleep < stickAxis.x || Control.Instance.stickSleep < stickAxis.y)
             onStick.Invoke(stickAxis);
@@ -63,6 +61,4 @@ public class MotionController : MonoBehaviour
     public class TransformEvent : UnityEvent<Transform> { }
     [System.Serializable]
     public class XYEvent : UnityEvent<Vector2> { }
-    [System.Serializable]
-    public class ButtonEvent : UnityEvent<bool> { }
 }

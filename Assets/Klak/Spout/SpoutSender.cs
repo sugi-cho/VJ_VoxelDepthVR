@@ -22,7 +22,7 @@ namespace Klak.Spout
         #endregion
 
         #region Private members
-
+        public Texture2D sharedTexture { get { return _sharedTexture; } }
         System.IntPtr _sender;
         Texture2D _sharedTexture;
         Material _fixupMaterial;

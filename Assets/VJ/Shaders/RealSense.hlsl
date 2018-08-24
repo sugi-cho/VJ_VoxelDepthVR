@@ -119,11 +119,6 @@ void cube(float3 center,float3 dir, float size, v2f o, inout TriangleStream<v2f>
 
 }
 
-void getPlanePos(float3 center, float size, inout float3 pos, inout float3 normal)
-{
-
-}
-
 [maxvertexcount(24)]
 void geom(point v2f input[1], inout TriangleStream<v2f> triStream)
 {
@@ -174,6 +169,18 @@ void frag (
     half dstFade = saturate(1 - (dst - 1) * 0.5);
     float t = saturate(p.t);
     outEmission = lerp(w * dstFade * _Line, lerp(_Col0, _Col1, t * t), p.prop.z);
+}
+
+half4 frag_forward(v2f i) : SV_Target
+{
+    voxelParticle p = _VoxelBuffer[i.vIdx];
+    float t = saturate(p.t);
+
+    half3 lDir = normalize(_WorldSpaceLightPos0.xyz - i.wPos);
+    half lit = max(0, dot(lDir, i.normal));
+    half4 c = _Color * lit;
+    half4 e = lerp(_Col0, _Col1, t * t) * p.prop.z;
+    return c + e;
 }
 
 half4 shadow_cast(v2f i):SV_Target

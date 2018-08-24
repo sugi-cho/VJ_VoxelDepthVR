@@ -30,6 +30,17 @@
 			}
 			Pass
 			{
+				Tags{ "LightMode" = "ForwardBase" }
+				CGPROGRAM
+				#pragma vertex vert
+				#pragma geometry geom
+				#pragma fragment frag_forward
+
+				#include "RealSense.hlsl"
+				ENDCG
+			}
+			Pass
+			{
 				Tags{ "LightMode" = "ShadowCaster" }
 				CGPROGRAM
 				#pragma vertex vert

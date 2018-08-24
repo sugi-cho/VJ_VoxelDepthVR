@@ -40,6 +40,26 @@ public class RealMesh : RendererBehaviour
 
     int numParticles;
 
+    public void ResetParticle()
+    {
+        var kernel = compute.FindKernel("init");
+        compute.SetBuffer(kernel, "_ParticleBuffer", particleBuffer);
+        compute.SetBuffer(kernel, "_VertBuffer", vertexBuffer);
+        compute.SetBuffer(kernel, "_IndicesBuffer", indicesBuffer);
+        compute.SetFloat("numP", 1f / numParticles);
+        compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
+    }
+
+    public void EmitParticle(Vector3 pos)
+    {
+        pos = transform.InverseTransformPoint(pos);
+    }
+
+    public void AddImpact(Vector3 pos)
+    {
+        pos = transform.InverseTransformPoint(pos);
+    }
+
     void Start()
     {
         RealSenseDevice.Instance.OnStart += OnStartStreaming;
@@ -104,11 +124,7 @@ public class RealMesh : RendererBehaviour
             indicesBuffer.SetData(indices);
             renderer.SetBuffer("_VoxelBuffer", particleBuffer);
 
-            var kernel = compute.FindKernel("init");
-            compute.SetBuffer(kernel, "_IndicesBuffer", indicesBuffer);
-            compute.SetBuffer(kernel, "_ParticleBuffer", particleBuffer);
-            compute.SetFloat("numP", 1f / numParticles);
-            compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
+            ResetParticle();
 
             if (mesh != null)
                 Destroy(mesh);
@@ -136,6 +152,16 @@ public class RealMesh : RendererBehaviour
         OnStopStreaming();
     }
 
+    private void OnApplicationQuit()
+    {
+        new List<ComputeBuffer>() { particleBuffer, vertexBuffer, indicesBuffer }.ForEach((b) =>
+        {
+            if (b != null)
+                b.Dispose();
+            b = null;
+        });
+    }
+
 
     private void OnStopStreaming()
     {
@@ -151,13 +177,6 @@ public class RealMesh : RendererBehaviour
             pc.Dispose();
             pc = null;
         }
-
-        new List<ComputeBuffer>() { particleBuffer, vertexBuffer, indicesBuffer }.ForEach((b) =>
-          {
-              if (b != null)
-                  b.Release();
-              b = null;
-          });
     }
 
     private void OnFrames(FrameSet frames)
