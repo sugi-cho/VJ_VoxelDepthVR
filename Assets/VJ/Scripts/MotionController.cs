@@ -7,7 +7,7 @@ using Valve.VR;
 
 public class MotionController : MonoBehaviour
 {
-
+    public Transform controllerDirection;
     public TransformEvent onGrip;
     public XYEvent onTouchPad;
     public XYEvent onStick;
@@ -37,21 +37,22 @@ public class MotionController : MonoBehaviour
         var device = SteamVR_Controller.Input((int)trackedObject.index);
 
         if (device.GetPress(grip))
-            onGrip.Invoke(transform);
+            onGrip.Invoke(controllerDirection);
 
         padAxis = device.GetAxis(EVRButtonId.k_EButton_Axis0);
         stickAxis = device.GetAxis(EVRButtonId.k_EButton_Axis2);
-        
+
         if (device.GetTouch(touchPad))
             onTouchPad.Invoke(padAxis);
         if (device.GetPress(touchPad))
-            onPadButton.Invoke(transform);
+            onPadButton.Invoke(controllerDirection);
 
-        if (Control.Instance.stickSleep < stickAxis.x || Control.Instance.stickSleep < stickAxis.y)
+        var sleep = Control.Instance.stickSleep;
+        if (sleep * sleep < Vector2.Dot(stickAxis, stickAxis))
             onStick.Invoke(stickAxis);
 
         if (device.GetPressDown(trigger))
-            onTrigger.Invoke(transform);
+            onTrigger.Invoke(controllerDirection);
 
         if (device.GetPressDown(menu))
             onMenu.Invoke();

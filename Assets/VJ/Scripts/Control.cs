@@ -10,6 +10,8 @@ public class Control : SingletonMonoBehaviour<Control>
 {
     [Header("VR Control")]
     public Transform head;
+    public Transform handPosL;
+    public Transform handPosR;
     public Renderer previewPlane;
 
     [Header("camera, light")]
@@ -49,7 +51,9 @@ public class Control : SingletonMonoBehaviour<Control>
     }
     public void OnGripCamera(Transform trs)
     {
-        GripObject(cameraTrs, trs);
+        cameraTrs.position = Vector3.Lerp(trs.position, cameraTrs.position, Mathf.Exp(-Time.deltaTime * dragFactor));
+        var toDir = Vector3.Lerp(trs.forward, cameraTrs.forward, Mathf.Exp(-Time.deltaTime * dragFactor));
+        cameraTrs.rotation = Quaternion.LookRotation(toDir);
     }
     void GripObject(Transform gripped, Transform gripper)
     {
@@ -63,7 +67,8 @@ public class Control : SingletonMonoBehaviour<Control>
     {
         var angle = Mathf.Atan2(axis.y, axis.x) / (2f * Mathf.PI);
         angle = (angle + 1f) % 1f;
-        keyLight.color = Color.HSVToRGB(angle, 0.4f, 1f);
+        var sat = axis.magnitude * 0.5f;
+        keyLight.color = Color.HSVToRGB(angle, sat * sat, 1f);
     }
     public void OnLightTarget(Transform trs)
     {
@@ -88,10 +93,13 @@ public class Control : SingletonMonoBehaviour<Control>
     public void RotateStage(Vector2 axis)
     {
         var angle = rotateSpeedMax * axis.x * axis.x * Mathf.Sign(axis.x) * Time.deltaTime;
-        turnObject.RotateAround(focalPoint.position, Vector3.up, angle);
+        turnObject.RotateAround(handPosL.position, Vector3.up, angle);
     }
     public void MoveStage(Vector2 axis)
     {
+        axis.x = -axis.x * axis.x * Mathf.Sign(axis.x);
+        axis.y = -axis.y * axis.y * Mathf.Sign(axis.y);
+
         stageRoot.position += (head.right * axis.x + head.forward * axis.y) * Time.deltaTime;
     }
     #endregion
@@ -117,8 +125,8 @@ public class Control : SingletonMonoBehaviour<Control>
     public void ResetStage()
     {
         cameraTrs.parent = turnObject;
-        turnObject.localPosition =  Vector3.zero;
-        turnObject.localRotation =  Quaternion.identity;
+        turnObject.localPosition = Vector3.zero;
+        turnObject.localRotation = Quaternion.identity;
         cameraTrs.parent = stageRoot;
 
         var headDir = head.forward;
@@ -157,5 +165,8 @@ public class Control : SingletonMonoBehaviour<Control>
             AddInpact(trs4debug);
         if (Input.GetKey(KeyCode.E))
             EmitLitParticle(trs4debug);
+
+        Shader.SetGlobalMatrix("_World2Handcam", cameraTrs.worldToLocalMatrix);
+        Shader.SetGlobalFloat("_FocusDst", dof.focusDistance);
     }
 }

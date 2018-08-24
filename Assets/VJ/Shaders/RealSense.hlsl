@@ -92,27 +92,27 @@ void cube(float3 center,float3 dir, float size, v2f o, inout TriangleStream<v2f>
         float3 p =  size * normal;
 
         float3 pos = p + size * (-right - up);
-        o.wPos = pos + center;
+        o.wPos = mul(unity_ObjectToWorld, float4(pos + center, 1)).xyz;
         o.normal = UnityObjectToWorldNormal(normal);
-        o.vertex = UnityObjectToClipPos(o.wPos);
+        o.vertex = UnityWorldToClipPos(o.wPos);
         triStream.Append(o);
 
         pos = p + size * (right - up);
-        o.wPos = pos + center;
+        o.wPos = mul(unity_ObjectToWorld, float4(pos + center, 1)).xyz;
         o.normal = UnityObjectToWorldNormal(normal);
-        o.vertex = UnityObjectToClipPos(o.wPos);
+        o.vertex = UnityWorldToClipPos(o.wPos);
         triStream.Append(o);
 
         pos = p + size * (-right + up);
-        o.wPos = pos + center;
+        o.wPos = mul(unity_ObjectToWorld, float4(pos + center, 1)).xyz;
         o.normal = UnityObjectToWorldNormal(normal);
-        o.vertex = UnityObjectToClipPos(o.wPos);
+        o.vertex = UnityWorldToClipPos(o.wPos);
         triStream.Append(o);
 
-        pos = p + size * ( right + up);
-        o.wPos = pos + center;
+        pos = p + size * (right + up);
+        o.wPos = mul(unity_ObjectToWorld, float4(pos + center, 1)).xyz;
         o.normal = UnityObjectToWorldNormal(normal);
-        o.vertex = UnityObjectToClipPos(o.wPos);
+        o.vertex = UnityWorldToClipPos(o.wPos);
         triStream.Append(o);
         triStream.RestartStrip();
     }
@@ -130,7 +130,7 @@ void geom(point v2f input[1], inout TriangleStream<v2f> triStream)
     float3 axis = cross(p.dir, toDir) + float3(0, 0.543, 0);
     float size = p.size * 0.35;
     size *= p.prop.y ? 1 : saturate(p.t * 0.1);
-    size *= saturate(1.0 - p.prop.y * pow(p.t * 0.1, 2.0));
+    size *= saturate(1.0 - p.prop.y * pow(p.t * 0.2, 2.0));
     size *= saturate(1.0 - p.prop.z * p.t * 0.5);
 
     cube(center, p.dir, size, input[0], triStream);
@@ -171,6 +171,9 @@ void frag (
     outEmission = lerp(w * dstFade * _Line, lerp(_Col0, _Col1, t * t), p.prop.z);
 }
 
+float4x4 _World2Handcam;
+float _FocusDst;
+
 half4 frag_forward(v2f i) : SV_Target
 {
     voxelParticle p = _VoxelBuffer[i.vIdx];
@@ -180,7 +183,12 @@ half4 frag_forward(v2f i) : SV_Target
     half lit = max(0, dot(lDir, i.normal));
     half4 c = _Color * lit;
     half4 e = lerp(_Col0, _Col1, t * t) * p.prop.z;
-    return c + e;
+    
+    half3 vPos = mul(_World2Handcam, half4(i.wPos, 1)).xyz;
+    half d = abs(_FocusDst - abs(vPos.z));
+    half4 focus = lerp(1.0, half4(1, 0.25, 0.25, 1), d);
+
+    return (c + e) * focus;
 }
 
 half4 shadow_cast(v2f i):SV_Target

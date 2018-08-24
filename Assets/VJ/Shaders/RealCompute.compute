@@ -89,7 +89,7 @@ void build (uint3 id : SV_DispatchThreadID)
 
     prop.w = prop.y && prop.w;
     
-    float3 up = float3(0, 0.04 * pow(max(p.size,0.001),-0.5), 0)*dt;
+    float3 up = float3(0, 0.02 * pow(max(p.size,0.001),-0.5), 0)*dt;
     float3 gravity = float3(0,-1,0) * dt;
     float3 curl = dfNoise(p.pos*2.0)*t*t;
 
@@ -98,7 +98,7 @@ void build (uint3 id : SV_DispatchThreadID)
     vel = lerp(0, vel, prop.y);
     float3 pos = p.pos + vel * dt + curl*dt*prop.z;
     pos = lerp(center, pos, prop.y);
-    float3 dir = rotateAngleAxis(p.dir,normal+float3(1,1,0),3*dt);
+    float3 dir = rotateAngleAxis(p.dir,float3(0.5,1,0),3*dt);
     dir = lerp(normal, dir, prop.y);
     size = lerp(size, p.size, p.prop.y);
 
@@ -124,7 +124,7 @@ void emitLit(uint3 id : SV_DispatchThreadID)
     uint idx0 = _IndicesBuffer[idx*3+0];
     uint idx1 = _IndicesBuffer[idx*3+1];
     uint idx2 = _IndicesBuffer[idx*3+2];
-    float3 rnd = rand3(float3(idx0 * numP, idx1 * numP+0.33+dt, idx2 * numP+0.7532+frac(time)));
+    float3 rnd = rand3(float2(idx0 * numP + frac(time), idx1 * numP + 0.33 + dt));
     float r = rand(rnd.zx);
 
     voxelParticle p = _ParticleBuffer[idx];
