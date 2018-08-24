@@ -91,7 +91,7 @@ void build (uint3 id : SV_DispatchThreadID)
     
     float3 up = float3(0, 0.04 * pow(max(p.size,0.001),-0.5), 0)*dt;
     float3 gravity = float3(0,-1,0) * dt;
-    float3 curl = dfNoise(p.pos*2.0)*0.5*t*t;
+    float3 curl = dfNoise(p.pos*2.0)*t*t;
 
     float3 vel = p.vel*exp(-dt*10.0) + up*prop.y + gravity*prop.w;
     vel += change * prop.y * normal;
@@ -125,14 +125,14 @@ void emitLit(uint3 id : SV_DispatchThreadID)
     uint idx1 = _IndicesBuffer[idx*3+1];
     uint idx2 = _IndicesBuffer[idx*3+2];
     float3 rnd = rand3(float3(idx0 * numP, idx1 * numP+0.33+dt, idx2 * numP+0.7532+frac(time)));
-    float r = dot(rnd,rnd);    
+    float r = rand(rnd.zx);
 
     voxelParticle p = _ParticleBuffer[idx];
 
-    float flag = 10.0 < p.t * p.prop.y && effectVal < r && p.prop.z < 1;
+    float flag = 5.0 < p.t * p.prop.y && r < effectVal * numP * dt && p.prop.z < 1;
 
     p.pos = lerp(p.pos, effectPos, flag);
-    p.vel = lerp(p.vel, normalize(rnd-0.5)*2, flag);
+    p.vel = lerp(p.vel, (rnd-0.5)*4, flag);
     p.t = lerp(p.t, 0.0, flag);
     p.prop.z = p.prop.z || flag;
 
