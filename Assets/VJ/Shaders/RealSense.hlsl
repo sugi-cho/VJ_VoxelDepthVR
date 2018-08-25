@@ -128,14 +128,13 @@ void geom(point v2f input[1], inout TriangleStream<v2f> triStream)
     float3 center = p.pos;
     float3 toDir = normalize(center - _WorldSpaceCameraPos);
     float3 axis = cross(p.dir, toDir) + float3(0, 0.543, 0);
-    float size = p.size * 0.35;
+    float size = p.size * 0.2;
     size *= p.prop.y ? 1 : saturate(p.t * 0.1);
     size *= saturate(1.0 - p.prop.y * pow(p.t * 0.2, 2.0));
-    size *= saturate(1.0 - p.prop.z * p.t * 0.5);
+    size *= saturate(1.0 - p.prop.z * p.t * .5);
 
     cube(center, p.dir, size, input[0], triStream);
 }
-
 		
 void frag (
     v2f i,

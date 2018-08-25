@@ -23,8 +23,13 @@ public class Control : SingletonMonoBehaviour<Control>
     DepthOfField dof;
 
     public Transform lightTrs;
+    public Light backLight;
     Light keyLight;
     Vector3 litDefaultPos;
+
+    float backLightIntensity;
+    float keyLightIntensity;
+
 
     [Header("stage")]
     public Transform stageRoot;
@@ -44,6 +49,8 @@ public class Control : SingletonMonoBehaviour<Control>
 
     [Header("for debug")]
     public Transform trs4debug;
+
+    System.Action[] randomEffects;
 
     #region Grip
     public void OnGripLight(Transform trs)
@@ -121,7 +128,8 @@ public class Control : SingletonMonoBehaviour<Control>
     #region Menu
     public void AddRandomEffect()
     {
-
+        var effect = randomEffects.GetRandom();
+        effect.Invoke();
     }
     public void ResetStage()
     {
@@ -134,7 +142,7 @@ public class Control : SingletonMonoBehaviour<Control>
         headDir.y = 0f;
         headDir = headDir.normalized;
         var rot = Quaternion.LookRotation(headDir);
-        stageRoot.position = head.position + headDir * 0.25f;
+        stageRoot.position = head.position + headDir * 0.25f + Vector3.down;
         stageRoot.rotation = rot;
 
         realMesh.ResetParticle();
@@ -150,7 +158,58 @@ public class Control : SingletonMonoBehaviour<Control>
         litDefaultPos = lightTrs.localPosition;
 
         sender = handCam.GetComponent<SpoutSender>();
-        previewPlane.SetTexture("_MainTex", sender.sharedTexture);
+
+        backLightIntensity = backLight.intensity;
+        keyLightIntensity = keyLight.intensity;
+        backLight.intensity = 0f;
+        keyLight.intensity = 0f;
+
+        randomEffects = new System.Action[] {
+            () => {
+                StartCoroutine(FadeLightRoutine(false));
+                realMesh.SetMotionParticle(false);
+                this.CallMethodDelayed(2f, realMesh.VerticalEffect);
+            },
+            () => {
+                StartCoroutine(FadeLightRoutine(false));
+                realMesh.SetMotionParticle(false);
+                this.CallMethodDelayed(2f, realMesh.HorizonalEffect);
+            },
+            () => {
+                StartCoroutine(FadeLightRoutine(false));
+                realMesh.SetMotionParticle(false);
+                this.CallMethodDelayed(2f, ()=>StartCoroutine(VanishAll()));
+            },
+        };
+    }
+
+    IEnumerator FadeLightRoutine(bool lit)
+    {
+        var from = lit ? 0 : 1f;
+        var to = (from + 1f) % 2f;
+        var t = 0f;
+        while (t < 1f)
+        {
+            var val = Mathf.Lerp(from, to, t);
+            backLight.intensity = val * backLightIntensity;
+            keyLight.intensity = val * keyLightIntensity;
+            yield return t += Time.deltaTime / 6f;
+        }
+        backLight.intensity = to * backLightIntensity;
+        keyLight.intensity = to * keyLightIntensity;
+        realMesh.SetMotionParticle(false);
+    }
+    IEnumerator VanishAll()
+    {
+        var from = -3f;
+        var to = 3f;
+        var t = 0f;
+        while(t < 1f)
+        {
+            var val = Mathf.Lerp(from, to, t);
+            realMesh.HeightLimitEffectt(val);
+            yield return t += Time.deltaTime / 4f;
+        }
     }
 
     // Update is called once per frame
@@ -166,6 +225,20 @@ public class Control : SingletonMonoBehaviour<Control>
             AddInpact(trs4debug);
         if (Input.GetKey(KeyCode.E))
             EmitLitParticle(trs4debug);
+
+        if (Input.GetKeyDown(KeyCode.Alpha1))
+        {
+            StartCoroutine(FadeLightRoutine(false));
+            realMesh.SetMotionParticle(false);
+        }
+        else if (Input.GetKeyDown(KeyCode.Alpha2))
+        {
+            StartCoroutine(FadeLightRoutine(true));
+        }
+        else if (Input.GetKeyDown(KeyCode.Alpha3))
+        {
+            realMesh.SetMotionParticle(true);
+        }
 
         Shader.SetGlobalMatrix("_World2Handcam", cameraTrs.worldToLocalMatrix);
         Shader.SetGlobalFloat("_FocusDst", dof.focusDistance);

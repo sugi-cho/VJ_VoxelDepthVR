@@ -34,6 +34,7 @@ public class RealMesh : RendererBehaviour
     ComputeBuffer vertexBuffer;
     ComputeBuffer indicesBuffer;
 
+
     SpatialFilter spatial;
     TemporalFilter temporal;
     HoleFillingFilter holeFilling;
@@ -41,6 +42,11 @@ public class RealMesh : RendererBehaviour
     int numParticles;
     public float particleEmitRate = 0.01f;
     public float impactRadius = 0.25f;
+
+    public void SetMotionParticle(bool flag)
+    {
+        compute.SetBool("motionEffect", flag);
+    }
 
     public void ResetParticle()
     {
@@ -78,12 +84,34 @@ public class RealMesh : RendererBehaviour
         compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
     }
 
+    public void HorizonalEffect()
+    {
+        var kernel = compute.FindKernel("horisonalEffect");
+        compute.SetBuffer(kernel, "_ParticleBuffer", particleBuffer);
+        compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
+    }
+
+    public void VerticalEffect()
+    {
+        var kernel = compute.FindKernel("verticalEffect");
+        compute.SetBuffer(kernel, "_ParticleBuffer", particleBuffer);
+        compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
+    }
+
+    public void HeightLimitEffectt(float height)
+    {
+        var kernel = compute.FindKernel("heightLimitEffect");
+        compute.SetBuffer(kernel, "_ParticleBuffer", particleBuffer);
+        compute.SetFloat("effectVal", height);
+        compute.Dispatch(kernel, numParticles / 8 + 1, 1, 1);
+    }
+
     void Start()
     {
         RealSenseDevice.Instance.OnStart += OnStartStreaming;
         RealSenseDevice.Instance.OnStop += OnStopStreaming;
     }
-
+    
     private void OnStartStreaming(PipelineProfile activeProfile)
     {
         pc = new PointCloud();

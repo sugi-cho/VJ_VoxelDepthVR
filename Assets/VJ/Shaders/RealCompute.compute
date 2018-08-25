@@ -3,11 +3,14 @@
 #pragma kernel build
 #pragma kernel emitLit
 #pragma kernel addImpact
+#pragma kernel horisonalEffect
+#pragma kernel verticalEffect
+#pragma kernel heightLimitEffect
 
 #include "RealSense.hlsl"
 float time, dt, numP;
 float4 impact;
-
+bool motionEffect;
 
 [numthreads(8,1,1)]
 void init (uint3 id : SV_DispatchThreadID)
@@ -77,7 +80,7 @@ void build (uint3 id : SV_DispatchThreadID)
     bool change = ((1-prop.y)*(40.0 + rnd*5.0) + prop.y * 20) < t;
     t = lerp(t, 0, change);
 
-    prop.x = (0.5 < diff && length(preVert) < 5.0);
+    prop.x = (0.5 < diff && length(preVert) < 5.0) && motionEffect;
     prop.y = (prop.y + change) % 2;
 
     float emitFlag = prop.z;
@@ -149,9 +152,57 @@ void addImpact(uint3 id : SV_DispatchThreadID)
     float d = length(fromTo);
     float impact = max(0.0, effectVal - d);
     p.prop.w = 0 < impact;
-    p.vel += normalize(fromTo) * impact * impact * 128;
+    p.vel += normalize(fromTo) * impact * impact * 32;
     p.prop.y = p.prop.w || p.prop.y;
     p.t = (p.prop.y<1 && p.prop.w) ? 0 : p.t;
+
+    _ParticleBuffer[idx] = p;
+}
+
+[numthreads(8, 1, 1)]
+void horisonalEffect(uint3 id : SV_DispatchThreadID)
+{
+    uint idx = id.x;
+    voxelParticle p = _ParticleBuffer[idx];
+    
+    bool flag = frac(p.pos.y * 10) < 0.25 && p.prop.y < 1;
+    p.t = lerp(p.t, 0, flag);
+    p.prop.y = flag || p.prop.y;
+    p.prop.z = flag || p.prop.z;
+
+    p.t = (p.prop.y < 1 && p.prop.w) ? 0 : p.t;
+
+    _ParticleBuffer[idx] = p;
+}
+
+[numthreads(8, 1, 1)]
+void verticalEffect(uint3 id : SV_DispatchThreadID)
+{
+    uint idx = id.x;
+    voxelParticle p = _ParticleBuffer[idx];
+    
+    bool flag = frac(p.pos.x * 10) < 0.25 && p.prop.y < 1;
+    p.t = lerp(p.t, 0, flag);
+    p.prop.y = flag || p.prop.y;
+    p.prop.z = flag || p.prop.z;
+
+    p.t = (p.prop.y < 1 && p.prop.w) ? 0 : p.t;
+
+    _ParticleBuffer[idx] = p;
+}
+
+[numthreads(8, 1, 1)]
+void heightLimitEffect(uint3 id : SV_DispatchThreadID)
+{
+    uint idx = id.x;
+    voxelParticle p = _ParticleBuffer[idx];
+    
+    bool flag = p.pos.y < effectVal && p.prop.y < 1;
+    p.t = lerp(p.t, 0, flag);
+    p.prop.y = flag || p.prop.y;
+    p.prop.z = flag || p.prop.z;
+
+    p.t = (p.prop.y < 1 && p.prop.w) ? 0 : p.t;
 
     _ParticleBuffer[idx] = p;
 }
