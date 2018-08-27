@@ -1,4 +1,4 @@
-# VJ Voxel Depth VR 2018.08.25
+# VJ Voxel Depth VR 2018.08.25 VJ Aquaduct
 
 ## DOLLHOUSE at B SPACE, OMOTESANDO, TOKYO
 
